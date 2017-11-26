@@ -6,16 +6,28 @@ class GetNews:
         self.api_key = api_key
         self.api_base_url = 'https://newsapi.org/v2'
 
-    def get_sources(self, items=None):
+    def get_sources(self, filters=None, items=None):
         """Get news sources.
 
         items: <list>
-          used to parse the response
-          documentation: https://newsapi.org/docs/endpoints/sources
+          choose what items to get from the response
+        filter: <dict>
+          filter the response
+
+        eg:
+          >>  get_sources(
+                  filters={'language': 'es', 'category': 'sport'},
+                  items=['name', 'language']
+              )
+          >>  [{'language': 'es', 'name': 'Marca'}]
+
+        documentation: https://newsapi.org/docs/endpoints/sources
         """
         url = self.api_base_url + '/sources'
         response = requests.get(url, params={'apiKey': self.api_key})
         sources = response.json()['sources']
+        if filters:
+            sources = list(filter(lambda x: all(x[y] == z for y, z in filters.items()), sources))
         if items:
             return list(map(lambda x: {y: x[y] for y in items}, sources))
         return sources

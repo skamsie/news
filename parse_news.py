@@ -4,12 +4,19 @@ import set_nlp
 
 
 API_KEY = os.getenv('NEWS_API_KEY')
-
+MIN_SIMILARITY = 0.9
+MIN_INTERSECTION = 1
 
 nlp = set_nlp.nlp
 news = get_news.GetNews(API_KEY)
 
-headlines = news.get_top_headlines(['bbc-news', 'independent', 'google-news', 'the-new-york-times', 'fox-news'])
+headlines = news.get_top_headlines(
+    [
+        'bbc-news', 'independent', 'google-news',
+        'the-new-york-times', 'fox-news', 'reuters',
+        'cnn'
+    ]
+)
 titles = list(map(lambda x: '. '.join((x['title'], x['description'])), headlines))
 
 
@@ -31,8 +38,8 @@ def find_similarity(sentences):
         for sentence in nlp_sentences[1:]:
             similarity = sentence_to_compare.similarity(sentence)
             sentence_entities = set(map(lambda x: x.lemma_, sentence.ents))
-            if similarity >= 0.89:
-                if sentence_to_compare_entities.intersection(sentence_entities):
+            if similarity >= MIN_SIMILARITY:
+                if len(sentence_to_compare_entities.intersection(sentence_entities)) >= MIN_INTERSECTION:
                     similarity_dict['similarities'].append((similarity, sentence))
 
         similarities_list.append(similarity_dict)
