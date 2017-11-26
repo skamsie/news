@@ -5,44 +5,61 @@ import set_nlp
 
 API_KEY = os.getenv('NEWS_API_KEY')
 MIN_SIMILARITY = 0.9
-MIN_INTERSECTION = 1
+CERTAIN_SIMILARITY = 0.97
+MIN_INTERSECTION = 2
+
 
 nlp = set_nlp.nlp
 news = get_news.GetNews(API_KEY)
 
-headlines = news.get_top_headlines(
-    [
+
+def get_headlines():
+    sources = [
         'bbc-news', 'independent', 'google-news',
         'the-new-york-times', 'fox-news', 'reuters',
-        'cnn'
+        'cnn', 'independent', 'time', 'the-telegraph'
     ]
-)
-titles = list(map(lambda x: '. '.join((x['title'], x['description'])), headlines))
+    headlines = news.get_top_headlines(sources)
+
+    for x in headlines:
+        x['nlp'] = nlp('. '.join((x['title'], x['description'])))
+        x['lemmas'] = set(map(lambda x: x.lemma_, x['nlp'].ents))
+
+    return headlines
 
 
 def find_similarity(sentences):
     similarities_list = []
-    _sentences = list(map(nlp, sentences))
 
-    def iterate_nlps(nlp_sentences):
-        if not nlp_sentences:
+    def iterate_nlps(headlines):
+        if not headlines:
             return similarities_list
 
-        sentence_to_compare = nlp_sentences[0]
-        sentence_to_compare_entities = set(map(lambda x: x.lemma_, sentence_to_compare.ents))
+        sentence_to_compare = headlines[0]['nlp']
+        sentence_to_compare_lemmas = headlines[0]['lemmas']
         similarity_dict = {
-            'sentence': sentence_to_compare,
+            'main': headlines[0],
             'similarities': []
         }
 
-        for sentence in nlp_sentences[1:]:
-            similarity = sentence_to_compare.similarity(sentence)
-            sentence_entities = set(map(lambda x: x.lemma_, sentence.ents))
-            if similarity >= MIN_SIMILARITY:
-                if len(sentence_to_compare_entities.intersection(sentence_entities)) >= MIN_INTERSECTION:
-                    similarity_dict['similarities'].append((similarity, sentence))
+        for sentence in headlines[1:]:
+            should_append = False
+            similarity = sentence_to_compare.similarity(sentence['nlp'])
+            sentence_lemmas = sentence['lemmas']
+            intersection = len(
+                sentence_to_compare_lemmas.intersection(sentence_lemmas))
+
+            if similarity >= CERTAIN_SIMILARITY:
+                should_append = True
+            elif similarity >= MIN_SIMILARITY:
+                if intersection >= MIN_INTERSECTION:
+                    should_append = True
+
+            if should_append:
+                similarity_dict['similarities'].append((similarity, sentence))
+                headlines.remove(sentence)
 
         similarities_list.append(similarity_dict)
 
-        return iterate_nlps(nlp_sentences[1:])
-    return iterate_nlps(_sentences)
+        return iterate_nlps(headlines[1:])
+    return iterate_nlps(sentences)
